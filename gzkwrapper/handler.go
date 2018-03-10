@@ -1,7 +1,5 @@
 package gzkwrapper
 
-type NodesPair map[string]*NodeData
-
 type NodeStore struct {
 	New      NodesPair
 	Dead     NodesPair

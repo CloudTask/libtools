@@ -207,6 +207,11 @@ func (s *Server) Set(path string, buffer []byte) error {
 	return s.Node.Set(path, buffer)
 }
 
+func (s *Server) GetNodes(location string, ipaddr string, hostname string) NodesPair {
+
+	return s.Cache.GetNodes(location, ipaddr, hostname)
+}
+
 func (s *Server) RefreshCache() error {
 
 	if err := s.pullRefCache(); err != nil { //更新本地refcache
@@ -233,10 +238,10 @@ func (s *Server) RefreshCache() error {
 	}
 	waitgroup.Wait()
 
-	temp_keys := make([]string, 0)
+	tempkeys := []string{}
 	lockeys = s.Cache.GetKeys()
 	for _, key := range lockeys {
-		temp_keys = append(temp_keys, key)
+		tempkeys = append(tempkeys, key)
 	}
 
 	refkeys := s.refcache.GetKeys()
@@ -278,7 +283,7 @@ func (s *Server) RefreshCache() error {
 	lockeys = s.Cache.GetKeys()
 	for _, key := range lockeys { //找出新加入节点
 		ret = false
-		for _, k := range temp_keys {
+		for _, k := range tempkeys {
 			if key == k {
 				ret = true
 				break

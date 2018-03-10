@@ -64,6 +64,8 @@ func decode(b []byte) (*NodeData, error) {
 	return nodedata, nil
 }
 
+type NodesPair map[string]*NodeData
+
 type BaseNode struct {
 	NodeType `json:"type"` //节点类型
 	HostName string        `json:"hostname"` //主机名称
@@ -124,7 +126,7 @@ func NewNodeData(nodetype NodeType, hostname string, datacenter string, location
 }
 
 type NodeMapper struct {
-	mutex *sync.RWMutex
+	sync.RWMutex
 	keys  []string
 	items map[string]*NodeData
 }
@@ -132,7 +134,6 @@ type NodeMapper struct {
 func NewNodeMapper() *NodeMapper {
 
 	return &NodeMapper{
-		mutex: new(sync.RWMutex),
 		keys:  make([]string, 0),
 		items: make(map[string]*NodeData),
 	}
@@ -140,22 +141,22 @@ func NewNodeMapper() *NodeMapper {
 
 func (mapper *NodeMapper) Count() int {
 
-	mapper.mutex.RLock()
-	defer mapper.mutex.RUnlock()
+	mapper.RLock()
+	defer mapper.RUnlock()
 	return len(mapper.items)
 }
 
 func (mapper *NodeMapper) GetKeys() []string {
 
-	mapper.mutex.RLock()
-	defer mapper.mutex.RUnlock()
+	mapper.RLock()
+	defer mapper.RUnlock()
 	return mapper.keys
 }
 
 func (mapper *NodeMapper) Contains(key string) bool {
 
-	mapper.mutex.RLock()
-	defer mapper.mutex.RUnlock()
+	mapper.RLock()
+	defer mapper.RUnlock()
 	for _, k := range mapper.keys {
 		if k == key {
 			return true
@@ -166,12 +167,29 @@ func (mapper *NodeMapper) Contains(key string) bool {
 
 func (mapper *NodeMapper) Get(key string) *NodeData {
 
-	mapper.mutex.RLock()
-	defer mapper.mutex.RUnlock()
+	mapper.RLock()
+	defer mapper.RUnlock()
 	if _, ret := mapper.items[key]; !ret {
 		return nil
 	}
 	return mapper.items[key]
+}
+
+func (mapper *NodeMapper) GetNodes(location string, ipaddr string, hostname string) NodesPair {
+
+	mapper.RLock()
+	defer mapper.RUnlock()
+	nodes := make(NodesPair)
+	ipaddr = strings.TrimSpace(ipaddr)
+	hostname = strings.TrimSpace(hostname)
+	for key, value := range mapper.items {
+		if value.Location == location {
+			if value.IpAddr == ipaddr || strings.ToUpper(value.HostName) == strings.ToUpper(hostname) {
+				nodes[key] = value
+			}
+		}
+	}
+	return nodes
 }
 
 func (mapper *NodeMapper) Copy(m map[string]*NodeData) {
@@ -180,8 +198,8 @@ func (mapper *NodeMapper) Copy(m map[string]*NodeData) {
 		return
 	}
 
-	mapper.mutex.Lock()
-	defer mapper.mutex.Unlock()
+	mapper.Lock()
+	defer mapper.Unlock()
 	mapper.items = m
 	mapper.keys = mapper.keys[0:0]
 	for key := range mapper.items {
@@ -195,8 +213,8 @@ func (mapper *NodeMapper) Append(key string, value *NodeData) int {
 		return -1
 	}
 
-	mapper.mutex.Lock()
-	defer mapper.mutex.Unlock()
+	mapper.Lock()
+	defer mapper.Unlock()
 	if _, ret := mapper.items[key]; !ret {
 		mapper.items[key] = value
 		mapper.keys = append(mapper.keys, key)
@@ -207,8 +225,8 @@ func (mapper *NodeMapper) Append(key string, value *NodeData) int {
 
 func (mapper *NodeMapper) Remove(key string) int {
 
-	mapper.mutex.Lock()
-	defer mapper.mutex.Unlock()
+	mapper.Lock()
+	defer mapper.Unlock()
 	if _, ret := mapper.items[key]; ret {
 		delete(mapper.items, key)
 		for i, k := range mapper.keys {
@@ -228,8 +246,8 @@ func (mapper *NodeMapper) Set(key string, value *NodeData) int {
 		return -1
 	}
 
-	mapper.mutex.Lock()
-	defer mapper.mutex.Unlock()
+	mapper.Lock()
+	defer mapper.Unlock()
 	if _, ret := mapper.items[key]; ret {
 		mapper.items[key] = value
 		return 0
@@ -239,10 +257,10 @@ func (mapper *NodeMapper) Set(key string, value *NodeData) int {
 
 func (mapper *NodeMapper) Clear() {
 
-	mapper.mutex.Lock()
+	mapper.Lock()
 	for key := range mapper.items {
 		delete(mapper.items, key)
 	}
 	mapper.keys = []string{}
-	mapper.mutex.Unlock()
+	mapper.Unlock()
 }
